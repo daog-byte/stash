@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/app/lib/supabase';
 import styles from './page.module.css';
 
 interface SavedLink {
@@ -8,11 +9,13 @@ interface SavedLink {
   url: string;
   title: string;
   summary: string;
+  created_at: string;
   tags: string[];
-  timestamp: number;
 }
 
-export default function Home() {
+export default function DashboardPage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState('');
   const [urlInput, setUrlInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('');
@@ -20,16 +23,21 @@ export default function Home() {
   const [showXPrompt, setShowXPrompt] = useState(false);
   const [hasShownPrompt, setHasShownPrompt] = useState(false);
 
-  // Load links from localStorage on mount
+  // Check auth on mount
   useEffect(() => {
-    const stored = localStorage.getItem('stash-guest-links');
-    if (stored) {
-      try {
-        setSavedLinks(JSON.parse(stored));
-      } catch (e) {
-        console.error('Error loading links:', e);
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user?.email) {
+        setUserEmail(session.user.email);
+        setIsLoading(false);
+      } else {
+        // Redirect to login if not authenticated
+        window.location.href = '/login?next=/dashboard';
       }
-    }
+    };
+
+    checkAuth();
   }, []);
 
   // Handle URL paste/input
@@ -65,17 +73,8 @@ export default function Home() {
 
       const newLink: SavedLink = await response.json();
 
-      // Add timestamp for guest tracking
-      const linkWithTimestamp = {
-        ...newLink,
-        timestamp: Date.now(),
-      };
-
-      // Save to localStorage
-      const updated = [linkWithTimestamp, ...savedLinks];
-      setSavedLinks(updated);
-      localStorage.setItem('stash-guest-links', JSON.stringify(updated));
-
+      // Add to list and clear input
+      setSavedLinks([newLink, ...savedLinks]);
       setUrlInput('');
       setSaveStatus('Link saved! ✓');
 
@@ -100,14 +99,40 @@ export default function Home() {
     setShowXPrompt(false);
   };
 
+  if (isLoading) {
+    return (
+      <main className={styles.page}>
+        <div className={styles.loadingContainer}>
+          <p>Loading...</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className={styles.page}>
+      <nav className={styles.topBar}>
+        <h1 className={styles.logo}>STASH</h1>
+        <div className={styles.userInfo}>
+          <span>{userEmail}</span>
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              window.location.href = '/';
+            }}
+            className={styles.signOutBtn}
+          >
+            Sign out
+          </button>
+        </div>
+      </nav>
+
       <section className={styles.main}>
         {savedLinks.length === 0 ? (
           <div className={styles.emptyState}>
             <div className={styles.emptyContent}>
-              <h2>STASH</h2>
-              <p className={styles.subtitle}>Paste a link. We&rsquo;ll enrich it with AI.</p>
+              <h2>Your STASH</h2>
+              <p className={styles.subtitle}>Paste a link below. We&rsquo;ll enrich it with AI.</p>
 
               <form onSubmit={handleSaveLink} className={styles.pasteForm}>
                 <input
@@ -133,16 +158,6 @@ export default function Home() {
                   {saveStatus}
                 </div>
               )}
-
-              <div className={styles.footerLinks}>
-                <a href="/home" className={styles.footerLink}>
-                  Explore app screens
-                </a>
-                <span style={{ margin: '0 8px', color: '#9e9388' }}>|</span>
-                <a href="/login" className={styles.footerLink}>
-                  Already have an account? Log in
-                </a>
-              </div>
             </div>
           </div>
         ) : (
@@ -193,16 +208,6 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-
-            <div className={styles.footerLinks}>
-              <a href="/home" className={styles.footerLink}>
-                Explore app screens
-              </a>
-              <span style={{ margin: '0 8px', color: '#9e9388' }}>|</span>
-              <a href="/login" className={styles.footerLink}>
-                Log in to sync and save permanently
-              </a>
-            </div>
           </div>
         )}
       </section>
@@ -224,7 +229,7 @@ export default function Home() {
                 <button className={styles.dismissBtn} onClick={dismissXPrompt}>
                   Not now
                 </button>
-                <a href="/login?next=/api/auth/twitter/login" className={styles.connectXBtn}>
+                <a href="/api/auth/twitter/login?next=/dashboard" className={styles.connectXBtn}>
                   Connect to X
                 </a>
               </div>

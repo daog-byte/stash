@@ -10,7 +10,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No URL provided' }, { status: 400 });
     }
 
-    // This sends the data to your 'links' table
+    // This sends the data to your 'stashes' table
     const { data, error } = await supabase
       .from('stashes')
       .insert([{ url }])
