@@ -19,8 +19,20 @@ const anthropic = new Anthropic({
 interface EnrichmentResult {
   title: string;
   summary: string;
-  tags: string[];
+  tag: string;
+  platform: string;
 }
+
+const VALID_TOPICS = new Set([
+  'design',
+  'tech',
+  'career',
+  'finance',
+  'health',
+  'culture',
+  'productivity',
+  'other',
+]);
 
 /**
  * Fetch metadata from a URL
@@ -71,31 +83,18 @@ async function enrichLinkWithClaude(
   url: string,
   metadata: { title?: string; description?: string }
 ): Promise<EnrichmentResult> {
+  const hostname = new URL(url).hostname.replace(/^www\./, '');
+  const safeTitle = metadata.title || hostname;
+  const safeSummary = metadata.description || 'No summary available yet.';
+
   try {
     const message = await anthropic.messages.create({
       model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 300,
+      max_tokens: 24,
       messages: [
         {
           role: 'user',
-          content: `Analyze this content and provide enrichment data.
-
-URL: ${url}
-Title: ${metadata.title || 'Not available'}
-Description: ${metadata.description || 'Not available'}
-
-Please provide:
-1. A concise 1-2 sentence summary of what this content is about
-2. 3-5 relevant tags/categories (as a JSON array of strings)
-
-Respond in this JSON format:
-{
-  "title": "A clear title for this link",
-  "summary": "1-2 sentence summary",
-  "tags": ["tag1", "tag2", "tag3"]
-}
-
-Only respond with the JSON, no other text.`,
+          content: `Title: ${safeTitle}\nSummary: ${safeSummary}\n\nBased on this content, assign exactly one topic tag from this list: design, tech, career, finance, health, culture, productivity, other. Return only the tag word, nothing else.`,
         },
       ],
     });
@@ -105,19 +104,23 @@ Only respond with the JSON, no other text.`,
       throw new Error('Unexpected response type');
     }
 
-    const enriched = JSON.parse(content.text);
+    const normalized = content.text.trim().toLowerCase();
+    const parsedTag = VALID_TOPICS.has(normalized) ? normalized : 'other';
+
     return {
-      title: enriched.title || metadata.title || url,
-      summary: enriched.summary || metadata.description || '',
-      tags: Array.isArray(enriched.tags) ? enriched.tags : [],
+      title: safeTitle,
+      summary: safeSummary,
+      tag: parsedTag,
+      platform: hostname,
     };
   } catch (error) {
     console.error('Error enriching with Claude:', error);
-    // Fallback to basic metadata
+
     return {
-      title: metadata.title || url,
-      summary: metadata.description || '',
-      tags: [],
+      title: safeTitle,
+      summary: safeSummary,
+      tag: 'other',
+      platform: hostname,
     };
   }
 }
@@ -130,7 +133,7 @@ Only respond with the JSON, no other text.`,
  */
 export async function POST(request: NextRequest) {
   try {
-    const { url } = await request.json();
+    const { url, userId } = await request.json();
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json(
@@ -155,49 +158,90 @@ export async function POST(request: NextRequest) {
     // Enrich with Claude
     const enriched = await enrichLinkWithClaude(url, metadata);
 
-    // Check if user is authenticated
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session?.user) {
-      // Authenticated user: save to database
-      const userId = session.user.id;
+    const guestPayload = {
+      id: `guest-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      url,
+      title: enriched.title,
+      summary: enriched.summary,
+      tag: enriched.tag,
+      tags: [enriched.tag],
+      platform: enriched.platform,
+      created_at: new Date().toISOString(),
+      savedToDb: false,
+    };
 
-      const { data, error } = await supabase
-        .from('links')
-        .insert({
-          user_id: userId,
-          url,
-          title: enriched.title,
-          summary: enriched.summary,
-          tags: enriched.tags,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+    if (!userId || typeof userId !== 'string') {
+      return NextResponse.json(guestPayload);
+    }
 
-      if (error) {
-        console.error('Error saving to Supabase:', error);
-        return NextResponse.json(
-          { error: 'Failed to save link' },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json(data);
-    } else {
-      // Guest user: return enriched data for client-side storage
-      // Generate a temporary UUID-like ID for localStorage
-      const id = `guest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      return NextResponse.json({
-        id,
+    const insertPayloads = [
+      {
+        user_id: userId,
         url,
         title: enriched.title,
         summary: enriched.summary,
-        tags: enriched.tags,
-        created_at: new Date().toISOString(),
-      });
+        tag: enriched.tag,
+        platform: enriched.platform,
+        saved_at: new Date().toISOString(),
+        read: false,
+      },
+      {
+        user_id: userId,
+        url,
+        title: enriched.title,
+        summary: enriched.summary,
+        tag: enriched.tag,
+        platform: enriched.platform,
+      },
+      {
+        user_id: userId,
+        url,
+        title: enriched.title,
+        summary: enriched.summary,
+        tag: enriched.tag,
+      },
+      {
+        user_id: userId,
+        url,
+        title: enriched.title,
+        summary: enriched.summary,
+      },
+      {
+        url,
+        title: enriched.title,
+        summary: enriched.summary,
+        tag: enriched.tag,
+      },
+      {
+        url,
+        title: enriched.title,
+        summary: enriched.summary,
+      },
+    ];
+
+    let savedRow: Record<string, unknown> | null = null;
+    let lastError = '';
+
+    for (const payload of insertPayloads) {
+      const { data, error } = await supabase.from('links').insert(payload).select().single();
+      if (!error && data) {
+        savedRow = data as Record<string, unknown>;
+        break;
+      }
+      lastError = error?.message || '';
     }
+
+    if (!savedRow) {
+      console.error('Error saving to Supabase:', lastError);
+      return NextResponse.json({ ...guestPayload, saveError: lastError });
+    }
+
+    return NextResponse.json({
+      ...savedRow,
+      tag: String(savedRow.tag || enriched.tag),
+      tags: [String(savedRow.tag || enriched.tag)],
+      savedToDb: true,
+    });
   } catch (error) {
     console.error('Error in POST /api/save/link:', error);
     return NextResponse.json(

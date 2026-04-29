@@ -1,5 +1,70 @@
 # STASH "Value First" Dashboard Setup Guide
 
+## Learning Log Entries
+
+### [2026-04-24 16:20] Fast capture UX needs focus defaults and graceful permission fallbacks
+In Lehman terms: for quick-save modals to feel instant, the input must auto-focus so users can paste immediately. Also, if Supabase blocks write with RLS, the app should not dead-end; it should still store locally and explain what happened. Keeping search controls fixed at the top of /search also matches user expectation from music-app style interfaces.
+
+### [2026-04-24 16:05] Interaction parity needs behavior-level matching, not just visual matching
+In Lehman terms: copying the look of Spotify/Shiori is not enough. The key was making +Create open as a true overlay modal (not inline content) and making Search behave with real idle/hover/focus states plus a dropdown that appears on focus. Once that behavior exists, the sidebar Search item can be removed because the top search panel becomes the actual search engine entry point.
+
+### [2026-04-24 15:45] Complex UX requests only work when data flows are made schema-tolerant first
+In Lehman terms: adding tabs, search controls, and creation popups is not enough if the database shape is inconsistent. We had to make save/load logic fallback safely when columns like user_id or read are missing, so the UI can still work while you continue testing end-to-end.
+
+### [2026-04-23 18:12] Account actions should live where users expect control actions, and the home screen needs a capture entry point
+In Lehman terms: if people cannot see where to sign out or paste a link, the app feels unfinished even if the data screens already exist. Moving Account into the sidebar's bottom control area makes it feel like a settings destination, and adding a "Save a link..." input on Home gives users an immediate first action instead of a dead end.
+
+### [2026-04-23 17:37] Shuffle feels smarter when weights reflect urgency plus age, not pure randomness
+In Lehman terms: random picks can keep showing low-value links, so we added a weighted shuffle API that favors urgent items and older unread backlog items. Then we connected it to Link Detail with a "Shuffle next" action and archive toggle, so deciding and moving to the next best item is one flow.
+
+### [2026-04-23 17:22] De-cluttering navigation works better when actions move closer to where users already are
+In Lehman terms: instead of keeping Search as a permanent sidebar tab, we removed it from the left nav and put an Archive button right beside the search box. This keeps the sidebar cleaner and makes Archive feel like part of the search flow, not a separate feature hunt.
+
+### [2026-04-23 17:08] Suggestion chips work best when tied to focus state and real unread history
+In Lehman terms: instead of showing random chips all the time, the app now only shows monthly suggestion chips when the search box is active and empty. Each chip comes from real unread saves (one per month, up to 6 months), and tapping a chip marks it as read before opening the link. This keeps search calm, useful, and connected to actual backlog cleanup.
+
+### [2026-04-23 16:55] Smooth collapse needs CSS transitions and persistent DOM labels
+In Lehman terms: if label text is removed instantly in React, collapse feels abrupt. Keeping labels in the DOM and animating width/opacity gives a true drawer-opening and drawer-closing motion. Also, icon size can be tuned by state (20px when collapsed) so navigation still feels readable.
+
+### [2026-04-23 16:35] Turning a wireframe list into a working home screen needs state + rules, not static text
+In Lehman terms: instead of just showing what the screen should have, Step 1 built a real `/home` feed using Supabase data, with tabs, filters, sorting, curated max-5 cards, and actions. Lesson: to move from mock UI to product UI, each section needs data logic (what to fetch), decision logic (how to filter/sort), and interaction logic (what happens on click).
+
+### [2026-04-23 10:40] A mixed auth setup can strand users after email verification
+In Lehman terms: sign up was still using Supabase email verification, but login was changed to WorkOS-only. So after a user clicked the verify link, they landed on login but had no valid way to continue. Lesson: signup and login must always use matching auth paths.
+
+### [2026-04-23 10:50] Always keep a fallback login path when external auth is not configured
+In Lehman terms: if WorkOS keys are not in .env.local, users should still get a real login form, not a dead-end message. This keeps progress moving while setup is incomplete.
+
+### [2026-04-23 11:00] Verification links can create sessions silently
+In Lehman terms: when users click email verification links, they can already be signed in in the background. Login pages should check for an existing session and auto-redirect instead of making users retype credentials.
+
+### [2026-04-23 11:10] Landing page conversion should not block product onboarding
+In Lehman terms: a polished split-screen landing page helps conversion, but auth routes still need to work end-to-end. Visual upgrades and auth reliability must ship together.
+
+### [2026-04-23 11:20] Capture each release as a learning immediately
+In Lehman terms: writing what changed, why it broke, and how it was fixed right away makes future debugging faster and reduces repeat mistakes.
+
+### [2026-04-20 09:00] WorkOS is now the front door for sign-in
+In Lehman terms: users now click one login button, go to WorkOS to prove who they are, and come back already signed in. This removes custom password handling from your app and gives you a cleaner auth flow.
+
+### [2026-04-20 09:05] Callback route is the handshake point
+In Lehman terms: the callback is like the handover desk. WorkOS sends back a one-time code, your app checks it, then saves a secure login cookie so the user stays signed in.
+
+### [2026-04-20 09:10] Supabase profile auto-creation is now built in
+In Lehman terms: once WorkOS confirms the user, your app checks if that email already has a row in public.profiles. If not, it creates one automatically, so links can always be tied to an owner.
+
+### [2026-04-20 09:15] Service role key is only for server-side trusted work
+In Lehman terms: the service role key is a master key. It must stay on the server and is used only in protected backend code to create or check profile rows safely.
+
+### [2026-04-20 09:20] Route protection now blocks most pages until login
+In Lehman terms: almost every route is protected by auth, except the login page and callback route. That means users must sign in before seeing private app pages.
+
+### [2026-04-20 09:25] Environment variables drive the full auth setup
+In Lehman terms: if the WorkOS and Supabase env values are missing, auth breaks. Keeping a clear .env template makes setup faster and avoids hidden config mistakes.
+
+### [2026-04-20 09:30] Next.js 16 prefers proxy naming over middleware
+In Lehman terms: Next.js 16 is moving from middleware.ts to proxy.ts naming. middleware.ts still works in many cases, but proxy is the newer convention to keep in mind.
+
 ## What's Changed
 
 The onboarding flow has been pivoted to a **"value first" approach**:

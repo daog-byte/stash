@@ -21,7 +21,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
-  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [weeklyDigestOptIn, setWeeklyDigestOptIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState('');
 
@@ -69,7 +69,9 @@ export default function SignUpPage() {
           first_name: firstName,
           last_name: lastName,
           referral_code: referralCode || null,
-          marketing_opt_in: marketingOptIn,
+          weekly_digest_opt_in: weeklyDigestOptIn,
+          digest_day: 'monday',
+          marketing_opt_in: weeklyDigestOptIn,
         },
       },
     });
@@ -186,10 +188,10 @@ export default function SignUpPage() {
           <label className={styles.checkWrap}>
             <input
               type="checkbox"
-              checked={marketingOptIn}
-              onChange={(event) => setMarketingOptIn(event.target.checked)}
+              checked={weeklyDigestOptIn}
+              onChange={(event) => setWeeklyDigestOptIn(event.target.checked)}
             />
-            Send me product updates and account tips by email.
+            Send me a weekly digest of my saved posts via email.
           </label>
 
           <button type="submit" className={styles.submit} disabled={isLoading}>

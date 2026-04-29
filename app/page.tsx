@@ -1,237 +1,69 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import styles from './page.module.css';
-
-interface SavedLink {
-  id: string;
-  url: string;
-  title: string;
-  summary: string;
-  tags: string[];
-  timestamp: number;
-}
+import Link from 'next/link'
+import styles from './page.module.css'
 
 export default function Home() {
-  const [urlInput, setUrlInput] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('');
-  const [savedLinks, setSavedLinks] = useState<SavedLink[]>([]);
-  const [showXPrompt, setShowXPrompt] = useState(false);
-  const [hasShownPrompt, setHasShownPrompt] = useState(false);
-
-  // Load links from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem('stash-guest-links');
-    if (stored) {
-      try {
-        setSavedLinks(JSON.parse(stored));
-      } catch (e) {
-        console.error('Error loading links:', e);
-      }
-    }
-  }, []);
-
-  // Handle URL paste/input
-  const handleSaveLink = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    if (!urlInput.trim()) {
-      setSaveStatus('Please enter a URL');
-      return;
-    }
-
-    setIsSaving(true);
-    setSaveStatus('');
-
-    try {
-      // Validate URL
-      try {
-        new URL(urlInput);
-      } catch {
-        throw new Error('Invalid URL. Please enter a valid web link.');
-      }
-
-      const response = await fetch('/api/save/link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlInput }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to save link');
-      }
-
-      const newLink: SavedLink = await response.json();
-
-      // Add timestamp for guest tracking
-      const linkWithTimestamp = {
-        ...newLink,
-        timestamp: Date.now(),
-      };
-
-      // Save to localStorage
-      const updated = [linkWithTimestamp, ...savedLinks];
-      setSavedLinks(updated);
-      localStorage.setItem('stash-guest-links', JSON.stringify(updated));
-
-      setUrlInput('');
-      setSaveStatus('Link saved! ✓');
-
-      // Show X prompt if this is the first save
-      if (!hasShownPrompt && savedLinks.length === 0) {
-        setTimeout(() => {
-          setShowXPrompt(true);
-          setHasShownPrompt(true);
-        }, 800);
-      }
-
-      // Clear status after 3 seconds
-      setTimeout(() => setSaveStatus(''), 3000);
-    } catch (error) {
-      setSaveStatus(error instanceof Error ? error.message : 'Something went wrong');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const dismissXPrompt = () => {
-    setShowXPrompt(false);
-  };
-
   return (
     <main className={styles.page}>
-      <section className={styles.main}>
-        {savedLinks.length === 0 ? (
-          <div className={styles.emptyState}>
-            <div className={styles.emptyContent}>
-              <h2>STASH</h2>
-              <p className={styles.subtitle}>Paste a link. We&rsquo;ll enrich it with AI.</p>
+      <div className={styles.shell}>
+        <header className={styles.header}>
+          <div className={styles.brand}>Stash</div>
+          <nav className={styles.nav}>
+            <Link href="/login" className={styles.loginLink}>
+              Log in
+            </Link>
+            <Link href="/signup" className={styles.signUpLink}>
+              Sign up
+            </Link>
+          </nav>
+        </header>
 
-              <form onSubmit={handleSaveLink} className={styles.pasteForm}>
-                <input
-                  type="text"
-                  placeholder="Paste a link here..."
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  className={styles.urlInput}
-                  disabled={isSaving}
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  disabled={isSaving || !urlInput.trim()}
-                  className={styles.submitBtn}
-                >
-                  {isSaving ? 'Enriching...' : 'Save'}
-                </button>
-              </form>
-
-              {saveStatus && (
-                <div className={`${styles.statusMessage} ${isSaving ? styles.statusLoading : ''}`}>
-                  {saveStatus}
-                </div>
-              )}
-
-              <div className={styles.footerLinks}>
-                <a href="/home" className={styles.footerLink}>
-                  Explore app screens
-                </a>
-                <span style={{ margin: '0 8px', color: '#9e9388' }}>|</span>
-                <a href="/login" className={styles.footerLink}>
-                  Already have an account? Log in
-                </a>
-              </div>
-            </div>
+        <section className={styles.hero}>
+          <div className={styles.heroCopy}>
+            <p className={styles.kicker}>Built for readers who think deeply</p>
+            <h1>The end of lost tabs. The beginning of better decisions.</h1>
+            <p className={styles.subheadline}>
+              Capture, shuffle, and synthesize. Move from passive saving to active edification.
+            </p>
+            <Link href="/signup" className={styles.mainCta}>
+              Start Stashing for Free
+            </Link>
           </div>
-        ) : (
-          <div className={styles.linksContainer}>
-            <form onSubmit={handleSaveLink} className={styles.compactForm}>
-              <input
-                type="text"
-                placeholder="Paste another link..."
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                className={styles.compactInput}
-                disabled={isSaving}
-              />
-              <button
-                type="submit"
-                disabled={isSaving || !urlInput.trim()}
-                className={styles.compactSubmitBtn}
-              >
-                {isSaving ? 'Saving...' : 'Add'}
-              </button>
-            </form>
 
-            {saveStatus && (
-              <div className={`${styles.statusMessage} ${isSaving ? styles.statusLoading : ''}`}>
-                {saveStatus}
-              </div>
-            )}
-
-            <ul className={styles.linksList}>
-              {savedLinks.map((link) => (
-                <li key={link.id} className={styles.linkItem}>
-                  <div className={styles.linkContent}>
-                    <h3 className={styles.linkTitle}>{link.title || link.url}</h3>
-                    {link.summary && <p className={styles.linkSummary}>{link.summary}</p>}
-                    {link.tags?.length > 0 && (
-                      <div className={styles.tagsContainer}>
-                        {link.tags.map((tag) => (
-                          <span key={tag} className={styles.tag}>
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <a href={link.url} target="_blank" rel="noopener noreferrer" className={styles.linkUrl}>
-                      {new URL(link.url).hostname}
-                    </a>
-                  </div>
-                </li>
-              ))}
+          <aside className={styles.heroPanel}>
+            <h2>How Stash helps</h2>
+            <ul className={styles.featureList}>
+              <li>
+                <strong>The Vault</strong>
+                <span>Securely keep every source you want to revisit.</span>
+              </li>
+              <li>
+                <strong>The Shuffle</strong>
+                <span>Bring forgotten links back at the right learning moment.</span>
+              </li>
+              <li>
+                <strong>The Decision</strong>
+                <span>Use summaries and signals to choose what to read next.</span>
+              </li>
             </ul>
-
-            <div className={styles.footerLinks}>
-              <a href="/home" className={styles.footerLink}>
-                Explore app screens
-              </a>
-              <span style={{ margin: '0 8px', color: '#9e9388' }}>|</span>
-              <a href="/login" className={styles.footerLink}>
-                Log in to sync and save permanently
-              </a>
+            <div className={styles.panelActions}>
+              <Link href="/signup" className={styles.agreeButton}>
+                Agree and Sign up
+              </Link>
+              <Link href="/login" className={styles.panelLogin}>
+                Already have an account?
+              </Link>
             </div>
-          </div>
-        )}
-      </section>
+          </aside>
+        </section>
 
-      {/* X Connect Prompt Modal */}
-      {showXPrompt && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modal}>
-            <button className={styles.closeBtn} onClick={dismissXPrompt}>
-              ✕
-            </button>
-            <div className={styles.modalContent}>
-              <p className={styles.modalEyebrow}>Import more content</p>
-              <h2>Want to import your X bookmarks too?</h2>
-              <p className={styles.modalDescription}>
-                Connect your X account and we&rsquo;ll pull in all your bookmarks automatically.
-              </p>
-              <div className={styles.modalActions}>
-                <button className={styles.dismissBtn} onClick={dismissXPrompt}>
-                  Not now
-                </button>
-                <a href="/login?next=/api/auth/twitter/login" className={styles.connectXBtn}>
-                  Connect to X
-                </a>
-              </div>
-            </div>
+        <footer className={styles.footer}>
+          <span>Stash</span>
+          <div className={styles.footerLinks}>
+            <Link href="/login">Log in</Link>
+            <Link href="/signup">Sign up</Link>
           </div>
-        </div>
-      )}
+        </footer>
+      </div>
     </main>
-  );
+  )
 }

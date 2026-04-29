@@ -5,6 +5,12 @@ This glossary explains key terms from your current workflow in simple language. 
 ## API Route
 A backend endpoint inside your app that receives a request and performs an action, like saving data.
 
+## AuthKit
+WorkOS's ready-made login toolkit that handles sign-in flow, sessions, and user identity plumbing for your app.
+
+## Callback Route
+The URL WorkOS sends users back to after login so your app can finish sign-in and create a local session.
+
 ## Build
 A production readiness check that compiles the app and catches problems before deployment.
 
@@ -13,6 +19,9 @@ A saved checkpoint in Git with a message describing what changed.
 
 ## Dependency
 An external package your project relies on, installed through npm.
+
+## Handshake
+The back-and-forth verification between two systems. Here, WorkOS confirms identity and your app accepts that result.
 
 ## Deploy
 Publishing your app so it is live on the internet.
@@ -32,6 +41,9 @@ A cloud platform where Git repositories are stored and shared.
 ## Localhost
 Your own computer running the app locally for testing.
 
+## Middleware
+Code that runs before a request reaches a page or API route, often used to check if a user is logged in.
+
 ## npm
 A package manager used to install dependencies and run project scripts.
 
@@ -47,8 +59,17 @@ The top-level folder of a project where core config files live.
 ## Schema
 The structure of a database table: columns, data types, and rules.
 
+## Service Role Key
+A high-privilege Supabase key used only on the server to perform trusted operations like admin inserts.
+
+## Session Cookie
+A secure browser cookie that remembers a logged-in user so they do not need to sign in on every page.
+
 ## Supabase
 A backend platform that provides a Postgres database and APIs.
+
+## WorkOS
+An identity platform your app uses for authentication, enterprise login options, and user session management.
 
 ## Table
 A spreadsheet-like structure in a database where rows of data are stored.
